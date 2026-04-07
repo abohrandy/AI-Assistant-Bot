@@ -1,0 +1,13 @@
+◇ injected env (3) from .env // tip: ⌘ override existing { override: true }
+[[36mINFO[0m] 4:43:15 PM - [Firebase] Initialized with service-account.json.
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+C:\Work\Reelas\AI assistant\AI-Assistant-Bot\bot\index.js:22
+  logger.error('Bootstrap failed:', err);
+         ^
+
+TypeError: Cannot read properties of undefined (reading 'error')
+    at C:\Work\Reelas\AI assistant\AI-Assistant-Bot\bot\index.js:22:10
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Node.js v24.14.0
