@@ -136,18 +136,18 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-8 pb-32">
+    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 pb-32">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-12 flex items-center justify-between">
+        <div className="mb-12 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <Link to="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition-colors group">
               <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               Back to Dashboard
             </Link>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
               Assistant Forge
             </h1>
-            <p className="text-gray-400 mt-2">Sculpt your AI's identity and intelligence</p>
+            <p className="text-gray-400 mt-2 text-sm md:text-base">Sculpt your AI's identity and intelligence</p>
           </div>
 
           <AnimatePresence>
@@ -167,7 +167,7 @@ export const SettingsPage: React.FC = () => {
 
         <form onSubmit={handleSave} className="space-y-8">
           {/* Section 1: Core Identity */}
-          <section className="bg-white/5 border border-white/10 rounded-[2.5rem] p-8 backdrop-blur-3xl relative overflow-hidden group">
+          <section className="bg-white/5 border border-white/10 rounded-3xl md:rounded-[2.5rem] p-6 md:p-10 backdrop-blur-3xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
               <Building2 className="w-32 h-32 text-blue-500" />
             </div>
@@ -187,7 +187,7 @@ export const SettingsPage: React.FC = () => {
                     type="text"
                     value={formData.businessName}
                     onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all font-medium text-lg"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 md:p-5 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all font-medium text-base md:text-lg"
                     placeholder="e.g. Reelas Technology"
                   />
                   <div className="absolute right-5 top-1/2 -translate-y-1/2 opacity-20">
@@ -199,7 +199,7 @@ export const SettingsPage: React.FC = () => {
           </section>
 
           {/* Section 2: AI Persona */}
-          <section className="bg-white/5 border border-white/10 rounded-[2.5rem] p-8 backdrop-blur-3xl relative overflow-hidden group">
+          <section className="bg-white/5 border border-white/10 rounded-3xl md:rounded-[2.5rem] p-6 md:p-10 backdrop-blur-3xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
               <MessageSquare className="w-32 h-32 text-purple-500" />
             </div>
@@ -256,7 +256,7 @@ export const SettingsPage: React.FC = () => {
                     value={formData.tone}
                     onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
                     rows={4}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all resize-none text-lg font-medium"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all resize-none text-base md:text-lg font-medium"
                     placeholder="Describe exactly how the AI should speak..."
                   />
                   <div className="flex items-center gap-2 text-xs text-purple-400 bg-purple-500/10 p-3 rounded-xl border border-purple-500/20">
@@ -269,7 +269,7 @@ export const SettingsPage: React.FC = () => {
           </section>
 
           {/* Section 3: Structured Knowledge */}
-          <section className="bg-white/5 border border-white/10 rounded-[2.5rem] p-8 backdrop-blur-3xl relative overflow-hidden group">
+          <section className="bg-white/5 border border-white/10 rounded-3xl md:rounded-[2.5rem] p-6 md:p-10 backdrop-blur-3xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
               <BookOpen className="w-32 h-32 text-emerald-500" />
             </div>

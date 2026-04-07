@@ -120,7 +120,7 @@ const Dashboard: React.FC = () => {
   return (
     <div className={containerStyle}>
       <nav className="border-b border-white/5 bg-black/20 backdrop-blur-xl fixed top-0 w-full z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
               <Bot className="w-6 h-6 text-white" />
@@ -149,11 +149,11 @@ const Dashboard: React.FC = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 pt-32 pb-20">
+      <main className="max-w-7xl mx-auto px-4 md:px-6 pt-32 pb-20">
         <div className="flex flex-col gap-12">
-          <div className={`${glassPanel} p-12 relative group`}>
+          <div className={`${glassPanel} p-6 md:p-12 relative group`}>
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-              <Zap className="w-40 h-40 text-purple-500" />
+              <Zap className="w-20 h-20 md:w-40 md:h-40 text-purple-500" />
             </div>
             
             <div className="relative z-10 max-w-2xl">
@@ -161,7 +161,7 @@ const Dashboard: React.FC = () => {
                 <Sparkles className="w-3.5 h-3.5 text-purple-400" />
                 <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Powering {tenantData?.businessName || 'Your Business'}</span>
               </div>
-              <h1 className="text-6xl font-black mb-6 leading-[0.9] tracking-tight">
+              <h1 className="text-3xl md:text-5xl lg:text-7xl font-black mb-6 leading-[0.9] tracking-tight">
                 Simulate your <span className="text-purple-500">AI pipeline.</span>
               </h1>
               <p className="text-lg text-gray-400 mb-8 leading-relaxed">
@@ -169,10 +169,12 @@ const Dashboard: React.FC = () => {
               </p>
 
               <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-4 bg-[#0a0a0a] border border-white/10 rounded-2xl p-2 pl-6 focus-within:border-purple-500/50 transition-all shadow-2xl">
-                  <MessageSquare className="w-5 h-5 text-gray-500" />
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4 bg-[#0a0a0a] border border-white/10 rounded-2xl p-2 md:pl-6 focus-within:border-purple-500/50 transition-all shadow-2xl">
+                  <div className="hidden md:flex items-center gap-4">
+                    <MessageSquare className="w-5 h-5 text-gray-500" />
+                  </div>
                   <input 
-                    className="flex-1 bg-transparent px-4 py-3 outline-none text-white placeholder-gray-600" 
+                    className="flex-1 bg-transparent px-4 py-4 md:py-3 outline-none text-white placeholder-gray-600 text-base" 
                     placeholder="How much for a new logo design?"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -181,7 +183,7 @@ const Dashboard: React.FC = () => {
                   <button 
                     onClick={handleProcess}
                     disabled={isProcessing || !input.trim()}
-                    className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-6 py-3 transition-all flex items-center gap-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-6 py-4 md:py-3 transition-all flex items-center justify-center gap-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
                   >
                     {isProcessing ? 'Thinking...' : 'Simulate'}
                     <Send className="w-4 h-4" />

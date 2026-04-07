@@ -86,13 +86,13 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white/5 border border-white/10 backdrop-blur-2xl rounded-3xl p-8 relative z-10"
+        className="w-full max-w-md bg-white/5 border border-white/10 backdrop-blur-2xl rounded-3xl p-6 md:p-8 relative z-10"
       >
         <div className="text-center mb-8">
           <div className="inline-flex p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 mb-4">
-            <Sparkles className="w-8 h-8 text-purple-400" />
+            <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-2">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
             {isLogin ? 'Welcome Back' : 'Create Your Account'}
           </h2>
           <p className="text-gray-400">
@@ -135,7 +135,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="hello@reelas.com"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all text-base"
               />
             </div>
           </div>
@@ -150,7 +150,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all text-base"
               />
             </div>
           </div>

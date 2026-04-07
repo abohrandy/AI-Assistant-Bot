@@ -90,7 +90,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-5xl md:text-7xl font-black text-slate-900 tracking-tight mb-6"
+            className="text-4xl sm:text-5xl md:text-7xl font-black text-slate-900 tracking-tight mb-6 px-2"
           >
             Modern AI for <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-600 to-indigo-600">Complex Support.</span>
           </motion.h1>
@@ -99,7 +99,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed font-medium"
+            className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed font-medium px-4"
           >
             Standalone intelligence for message classification and knowledge filtering. Automate your business communication with the precision of deep learning.
           </motion.p>
@@ -154,23 +154,23 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-slate-950 text-white">
-        <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      <section className="py-12 md:py-20 bg-slate-950 text-white">
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           <div>
-            <div className="text-4xl font-black mb-1">99%</div>
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Accuracy</div>
+            <div className="text-3xl md:text-4xl font-black mb-1">99%</div>
+            <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-500">Accuracy</div>
           </div>
           <div>
-            <div className="text-4xl font-black mb-1">&lt;0.5s</div>
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Latency</div>
+            <div className="text-3xl md:text-4xl font-black mb-1">&lt;0.5s</div>
+            <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-500">Latency</div>
           </div>
           <div>
-            <div className="text-4xl font-black mb-1">5+</div>
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Categories</div>
+            <div className="text-3xl md:text-4xl font-black mb-1">5+</div>
+            <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-500">Categories</div>
           </div>
           <div>
-            <div className="text-4xl font-black mb-1">10k+</div>
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Analysed</div>
+            <div className="text-3xl md:text-4xl font-black mb-1">10k+</div>
+            <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-500">Analysed</div>
           </div>
         </div>
       </section>
