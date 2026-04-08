@@ -60,6 +60,7 @@ const Dashboard: React.FC<DashboardProps> = ({ uidOverride }) => {
   const [tenantData, setTenantData] = useState<any>(null);
   const [faqMatch, setFaqMatch] = useState<string | null>(null);
   const [autoSend, setAutoSend] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>({
     totalMessages: 0,
     automatedReplies: 0,
@@ -109,9 +110,17 @@ const Dashboard: React.FC<DashboardProps> = ({ uidOverride }) => {
   }, []);
 
   const handleProcess = async () => {
-    if (!input.trim() || !tenantData) return;
+    setError(null);
+    if (!input.trim()) return;
+    
+    if (!tenantData) {
+      setError("Pipeline failed: Tenant context is missing or not fully loaded.");
+      return;
+    }
+
     setIsProcessing(true);
     setFaqMatch(null); 
+    setPipelineData(null);
     try {
       const faqsString = (tenantData.knowledgeCards || [])
         .filter((c: any) => c.title.toLowerCase().includes('faq'))
@@ -161,8 +170,9 @@ const Dashboard: React.FC<DashboardProps> = ({ uidOverride }) => {
         isAutoSend
       });
 
-    } catch (error) {
-      console.error("Pipeline error:", error);
+    } catch (err: any) {
+      console.error("Pipeline error:", err);
+      setError(err.message || "An unexpected error occurred during pipeline execution. Check logs for details.");
     } finally {
       setIsProcessing(false);
     }
@@ -274,7 +284,22 @@ const Dashboard: React.FC<DashboardProps> = ({ uidOverride }) => {
               </div>
 
               <AnimatePresence mode="wait">
-                {(pipelineData || faqMatch) && (
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex gap-3 items-center"
+                  >
+                    <ShieldCheck className="w-5 h-5 text-red-500" />
+                    <div>
+                      <p className="text-red-400 font-bold text-xs uppercase tracking-widest">Pipeline Error</p>
+                      <p className="text-red-50 text-sm mt-0.5">{error}</p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {(pipelineData || faqMatch) && !error && (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
