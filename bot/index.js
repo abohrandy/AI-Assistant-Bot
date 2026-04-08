@@ -19,6 +19,10 @@ async function bootstrap() {
 }
 
 bootstrap().catch(err => {
-  logger.error('Bootstrap failed:', err);
+  if (logger && typeof logger.error === 'function') {
+    logger.error('Bootstrap failed:', err);
+  } else {
+    console.error('Bootstrap failed (logger unavailable):', err);
+  }
   process.exit(1);
 });

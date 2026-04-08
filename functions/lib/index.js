@@ -32,12 +32,48 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateReply = exports.filterKnowledge = exports.classifyMessage = void 0;
+exports.matchFAQ = exports.reviewReply = exports.generateReply = exports.filterKnowledge = exports.classifyMessage = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const generative_ai_1 = require("@google/generative-ai");
+const axios_1 = __importDefault(require("axios"));
+const cheerio = __importStar(require("cheerio"));
+const pdf = require("pdf-parse");
 admin.initializeApp();
+async function fetchPageContent(url) {
+    try {
+        const response = await axios_1.default.get(url, { timeout: 5000 });
+        const $ = cheerio.load(response.data);
+        $('script, style, nav, footer, header').remove();
+        return $('body').text()
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 5000);
+    }
+    catch (error) {
+        console.error(`Scraping error for ${url}:`, error);
+        return `Error reading page: ${url}`;
+    }
+}
+async function parsePdfContent(url) {
+    try {
+        const response = await axios_1.default.get(url, { responseType: 'arraybuffer' });
+        const buffer = Buffer.from(response.data);
+        const data = await pdf(buffer);
+        return data.text
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 5000);
+    }
+    catch (error) {
+        console.error(`PDF parsing error for ${url}:`, error);
+        return `Error reading PDF: ${url}`;
+    }
+}
 exports.classifyMessage = functions.runWith({
     secrets: ["GEMINI_API_KEY"],
 }).https.onCall(async (data, context) => {
@@ -84,11 +120,31 @@ Return ONLY valid JSON:
 });
 exports.filterKnowledge = functions.runWith({
     secrets: ["GEMINI_API_KEY"],
+    timeoutSeconds: 60,
+    memory: "512MB"
 }).https.onCall(async (data, context) => {
-    const { message, retrieved_chunks } = data;
-    if (!message || !retrieved_chunks) {
-        throw new functions.https.HttpsError("invalid-argument", "Missing message or chunks.");
+    const { message, retrieved_chunks, webLinks, documents } = data;
+    if (!message) {
+        throw new functions.https.HttpsError("invalid-argument", "Missing message.");
     }
+    let dynamicContext = "";
+    if (webLinks && Array.isArray(webLinks)) {
+        const scraped = await Promise.all(webLinks.map(async (url) => {
+            const content = await fetchPageContent(url);
+            return `[WEB SOURCE: ${url}]\n${content}`;
+        }));
+        dynamicContext += scraped.join("\n\n");
+    }
+    if (documents && Array.isArray(documents)) {
+        const parsed = await Promise.all(documents.map(async (doc) => {
+            const content = await parsePdfContent(doc.url);
+            return `[PDF SOURCE: ${doc.name}]\n${content}`;
+        }));
+        dynamicContext += parsed.join("\n\n");
+    }
+    const finalContext = `${retrieved_chunks || ""}\n\n${dynamicContext}`.trim();
+    if (!finalContext)
+        return { bullets: "No relevant business data found." };
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey)
         throw new functions.https.HttpsError("internal", "Missing API Key.");
@@ -168,6 +224,74 @@ Return ONLY valid JSON:
     catch (error) {
         console.error("Reply generation error:", error);
         throw new functions.https.HttpsError("internal", "Reply generation failed.");
+    }
+});
+exports.reviewReply = functions.runWith({
+    secrets: ["GEMINI_API_KEY"],
+}).https.onCall(async (data, context) => {
+    const { reply, context: bizContext } = data;
+    if (!reply)
+        throw new functions.https.HttpsError("invalid-argument", "Missing reply.");
+    const apiKey = process.env.GEMINI_API_KEY;
+    const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `You are reviewing a reply before it is sent to a customer.
+
+Reply:
+"${reply}"
+
+Business Context:
+${bizContext}
+
+Checklist:
+- Is it accurate based on known business info?
+- Is it polite and professional?
+- Does it avoid guessing or making things up?
+
+If the reply is good, return it unchanged.
+If not, rewrite it correctly using the provided business info.
+
+Return ONLY the final reply text.`;
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text().trim();
+    }
+    catch (error) {
+        console.error("Review error:", error);
+        throw new functions.https.HttpsError("internal", "Review failed.");
+    }
+});
+exports.matchFAQ = functions.runWith({
+    secrets: ["GEMINI_API_KEY"],
+}).https.onCall(async (data, context) => {
+    const { message, faqs } = data;
+    if (!message || !faqs)
+        throw new functions.https.HttpsError("invalid-argument", "Missing message or FAQs.");
+    const apiKey = process.env.GEMINI_API_KEY;
+    const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `You are matching a customer message to a business FAQ.
+
+Customer message:
+"${message}"
+
+FAQs:
+${faqs}
+
+Instructions:
+- Find the closest matching FAQ
+- If none matches, return "NONE"
+
+Return ONLY the answer or "NONE".`;
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text().trim();
+    }
+    catch (error) {
+        console.error("Match error:", error);
+        throw new functions.https.HttpsError("internal", "Matching failed.");
     }
 });
 //# sourceMappingURL=index.js.map

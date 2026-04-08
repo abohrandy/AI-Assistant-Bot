@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs-extra');
 const path = require('path');
 const logger = require('../utils/logger');
-const { db } = require('./firebase.service');
+const { db, admin } = require('./firebase.service');
 const { pipelineService } = require('./pipeline.service');
 const { SELECTORS, DELAYS } = require('../config/config');
 
@@ -115,23 +115,61 @@ class InstagramWorker {
       const context = {
         businessName: tenantData.businessName || this.username,
         tone: tenantData.tone || 'professional',
-        retrieved_chunks: (tenantData.knowledgeBase || [])
-          .map(card => `${card.title}: ${card.content}`)
-          .join('\n')
+        retrieved_chunks: (tenantData.knowledgeCards || tenantData.knowledgeBase || [])
+          .map(card => `${card.title}: ${card.content}`).join('\n'),
+        webLinks: tenantData.webLinks?.map(l => l.url) || [],
+        documents: tenantData.documents || [],
+        history: [] // Could be fetched from a conversation collection later
       };
 
       // 5-Stage Pipeline logic
+      const startTime = Date.now();
       const result = await pipelineService.processMessage(messageText, context);
+      const responseTime = (Date.now() - startTime) / 1000;
+
+      // Update basic stats
+      await this.updateStats(result.autoSend, responseTime);
 
       if (result.autoSend) {
         logger.success(`[${this.uid}] Auto-sending reply: "${result.reply}"`);
         await this.sendReply(result.reply);
+        await this.logActivity('reply', `Replied to: "${messageText.slice(0, 30)}..."`, 'success');
       } else {
         logger.info(`[${this.uid}] Manual review required. Confidence too low.`);
+        await this.logActivity('review', `Manual review required for: "${messageText.slice(0, 30)}..."`, 'warning');
       }
 
     } catch (error) {
       logger.error(`[${this.uid}] Failed to handle conversation:`, error);
+      await this.logActivity('error', `Failed to handle message: ${error.message}`, 'error');
+    }
+  }
+
+  async updateStats(isAutomated, responseTime) {
+    try {
+      const statsRef = db.collection('tenants').doc(this.uid).collection('stats').doc('overview');
+      await statsRef.set({
+        totalMessages: admin.firestore.FieldValue.increment(1),
+        automatedReplies: isAutomated ? admin.firestore.FieldValue.increment(1) : admin.firestore.FieldValue.increment(0),
+        avgResponseTime: responseTime, // simplified for now, could be a moving average
+        lastActive: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      logger.error(`[${this.uid}] Failed to update stats:`, err.message);
+    }
+  }
+
+  async logActivity(type, action, status) {
+    try {
+      await db.collection('tenants').doc(this.uid).collection('activity').add({
+        type,
+        action,
+        status,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        user: this.username
+      });
+    } catch (err) {
+      logger.error(`[${this.uid}] Failed to log activity:`, err.message);
     }
   }
 

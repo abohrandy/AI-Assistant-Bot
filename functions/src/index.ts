@@ -1,8 +1,46 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import axios from "axios";
+import * as cheerio from "cheerio";
+const pdf = require("pdf-parse");
 
 admin.initializeApp();
+
+// --- HELPERS ---
+
+async function fetchPageContent(url: string): Promise<string> {
+  try {
+    const response = await axios.get(url, { timeout: 5000 });
+    const $ = cheerio.load(response.data);
+    
+    // Remove scripts and styles
+    $('script, style, nav, footer, header').remove();
+    
+    return $('body').text()
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 5000); // Limit context size
+  } catch (error) {
+    console.error(`Scraping error for ${url}:`, error);
+    return `Error reading page: ${url}`;
+  }
+}
+
+async function parsePdfContent(url: string): Promise<string> {
+  try {
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(response.data);
+    const data = await pdf(buffer);
+    return data.text
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 5000);
+  } catch (error) {
+    console.error(`PDF parsing error for ${url}:`, error);
+    return `Error reading PDF: ${url}`;
+  }
+}
 
 // 1. Classification Function
 export const classifyMessage = functions.runWith({
@@ -54,11 +92,36 @@ Return ONLY valid JSON:
 // 2. Knowledge Filtering Function
 export const filterKnowledge = functions.runWith({
   secrets: ["GEMINI_API_KEY"],
+  timeoutSeconds: 60, // Increase timeout for scraping
+  memory: "512MB"
 }).https.onCall(async (data, context) => {
-  const { message, retrieved_chunks } = data;
-  if (!message || !retrieved_chunks) {
-    throw new functions.https.HttpsError("invalid-argument", "Missing message or chunks.");
+  const { message, retrieved_chunks, webLinks, documents } = data;
+  if (!message) {
+    throw new functions.https.HttpsError("invalid-argument", "Missing message.");
   }
+
+  // 1. Process Dynamic Sources
+  let dynamicContext = "";
+  
+  if (webLinks && Array.isArray(webLinks)) {
+    const scraped = await Promise.all(webLinks.map(async (url: string) => {
+      const content = await fetchPageContent(url);
+      return `[WEB SOURCE: ${url}]\n${content}`;
+    }));
+    dynamicContext += scraped.join("\n\n");
+  }
+
+  if (documents && Array.isArray(documents)) {
+    const parsed = await Promise.all(documents.map(async (doc: any) => {
+      const content = await parsePdfContent(doc.url);
+      return `[PDF SOURCE: ${doc.name}]\n${content}`;
+    }));
+    dynamicContext += parsed.join("\n\n");
+  }
+
+  const finalContext = `${retrieved_chunks || ""}\n\n${dynamicContext}`.trim();
+  
+  if (!finalContext) return { bullets: "No relevant business data found." };
 
   const apiKey = process.env.GEMINI_API_KEY!;
   if (!apiKey) throw new functions.https.HttpsError("internal", "Missing API Key.");

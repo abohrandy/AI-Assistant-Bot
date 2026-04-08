@@ -14,12 +14,19 @@ export const classifyMessage = async (message: string) => {
 };
 
 // Stage 2: Knowledge Filtering
-export const filterKnowledge = async (params: { message: string; knowledgeBase: string }) => {
+export const filterKnowledge = async (params: { 
+  message: string; 
+  knowledgeBase: string;
+  webLinks?: string[];
+  documents?: any[];
+}) => {
   const filter = httpsCallable(functions, 'filterKnowledge');
   try {
     const result = await filter({ 
       message: params.message, 
-      retrieved_chunks: params.knowledgeBase 
+      retrieved_chunks: params.knowledgeBase,
+      webLinks: params.webLinks,
+      documents: params.documents
     });
     return result.data as { bullets: string };
   } catch (error) {

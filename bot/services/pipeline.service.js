@@ -12,18 +12,39 @@ class PipelineService {
     ];
   }
 
-  async processMessage(message) {
+  async processMessage(message, contextData = {}) {
     try {
       // Stage 1: Classify
       const classification = await aiService.classifyMessage(message);
       logger.info(`Intent: ${classification.category} (${(classification.confidence * 100).toFixed(1)}%)`);
 
-      // Stage 2: Retrieve Context (Simple Mock)
-      const context = this.retrieveContext(message);
-      logger.info(`Context retrieved: ${context ? 'Found' : 'Generic'}`);
+      // Stage 2: Deep Context Retrieval
+      let retrievedContext = contextData.retrieved_chunks || "";
+      
+      // Parse Web Links if present
+      if (contextData.webLinks && Array.isArray(contextData.webLinks)) {
+        logger.info(`Scraping ${contextData.webLinks.length} web links...`);
+        const scraped = await Promise.all(contextData.webLinks.map(async (url) => {
+          const content = await aiService.fetchPageContent(url);
+          return `[WEB SOURCE: ${url}]\n${content}`;
+        }));
+        retrievedContext += `\n\n${scraped.join("\n\n")}`;
+      }
+
+      // Parse Documents if present
+      if (contextData.documents && Array.isArray(contextData.documents)) {
+        logger.info(`Parsing ${contextData.documents.length} documents...`);
+        const parsed = await Promise.all(contextData.documents.map(async (doc) => {
+          const content = await aiService.parsePdfContent(doc.url);
+          return `[PDF SOURCE: ${doc.name}]\n${content}`;
+        }));
+        retrievedContext += `\n\n${parsed.join("\n\n")}`;
+      }
+
+      logger.info(`Context length: ${retrievedContext.length} chars`);
 
       // Stage 3: Generate Reply
-      const replyData = await aiService.generateReply(message, context || 'Be helpful and polite.');
+      const replyData = await aiService.generateReply(message, retrievedContext || 'Be helpful and polite.', contextData.history || []);
       
       // Stage 4: Safety/Review
       const finalReply = await aiService.validateReply(replyData.reply);
@@ -35,30 +56,17 @@ class PipelineService {
         replyData.confidence >= config.rules.minAiConfidence
       );
 
-      if (shouldAutoSend) {
-        logger.success('AUTO-SEND triggered based on high confidence.');
-        
-        // Add random delay to simulate human pause
-        const delay = Math.floor(Math.random() * (config.rules.maxDelay - config.rules.minDelay)) + config.rules.minDelay;
-        logger.info(`Simulating human delay: ${(delay / 1000).toFixed(1)}s...`);
-        
-        setTimeout(async () => {
-          await instagramService.sendReply(finalReply);
-        }, delay);
-      } else {
-        logger.warn('HOLDING message. Confidence scores too low or complex intent.');
-        logger.info(`Final proposed reply: "${finalReply}"`);
-      }
+      return {
+        reply: finalReply,
+        autoSend: shouldAutoSend,
+        classification,
+        confidence: replyData.confidence
+      };
 
     } catch (err) {
       logger.error(`Pipeline Error: ${err.message}`);
+      return { reply: "I'm sorry, I'm having trouble processing that right now.", autoSend: false };
     }
-  }
-
-  retrieveContext(message) {
-    const lowerMessage = message.toLowerCase();
-    const match = this.mockContext.find(c => lowerMessage.includes(c.topic));
-    return match ? match.detail : null;
   }
 }
 

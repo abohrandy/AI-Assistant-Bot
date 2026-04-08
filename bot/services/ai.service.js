@@ -1,4 +1,6 @@
 const axios = require('axios');
+const cheerio = require('cheerio');
+const pdf = require('pdf-parse');
 const config = require('../config/config');
 const logger = require('../utils/logger');
 
@@ -11,6 +13,32 @@ class AIService {
         'Content-Type': 'application/json',
       }
     });
+  }
+
+  async fetchPageContent(url) {
+    try {
+      // Use direct axios for scraping to avoid baseURL/Auth header conflicts
+      const response = await axios.get(url, { timeout: 10000 }); 
+      const $ = cheerio.load(response.data);
+      $('script, style, nav, footer, header').remove();
+      return $('body').text().replace(/\s+/g, ' ').trim().slice(0, 5000);
+    } catch (error) {
+      logger.error(`Scraping error: ${url}`);
+      return `Error reading page: ${url}`;
+    }
+  }
+
+  async parsePdfContent(url) {
+    try {
+      // Use direct axios for fetching PDF
+      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      const buffer = Buffer.from(response.data);
+      const data = await pdf(buffer);
+      return data.text.replace(/\s+/g, ' ').trim().slice(0, 5000);
+    } catch (error) {
+      logger.error(`PDF parsing error: ${url}`);
+      return `Error reading PDF: ${url}`;
+    }
   }
 
   async classifyMessage(message) {

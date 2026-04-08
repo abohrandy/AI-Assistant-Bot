@@ -18,14 +18,30 @@ import {
   Instagram,
   ShieldCheck,
   Zap,
-  Power
+  Power,
+  Globe,
+  FileText,
+  Link2,
+  X,
+  ExternalLink,
+  File
 } from 'lucide-react';
+import { storage } from '../lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Link } from 'react-router-dom';
 
 interface KnowledgeCard {
   id: string;
   title: string;
   content: string;
+}
+
+interface DocumentInfo {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  uploadedAt: string;
 }
 
 const TONE_PRESETS = [
@@ -43,7 +59,9 @@ export const SettingsPage: React.FC = () => {
     businessName: '',
     tone: 'Professional, polite, and helpful. Use clear business language.',
     isCustomTone: false,
-    knowledgeBase: [] as KnowledgeCard[],
+    knowledgeCards: [] as KnowledgeCard[],
+    webLinks: [] as string[],
+    documents: [] as DocumentInfo[],
     botConfig: {
       username: '',
       password: '',
@@ -52,25 +70,39 @@ export const SettingsPage: React.FC = () => {
     }
   });
 
+  const [linkInput, setLinkInput] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   useEffect(() => {
     const fetchSettings = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          setLoading(false);
+          return;
+        }
 
-      const docRef = doc(db, 'tenants', user.uid);
-      const docSnap = await getDoc(docRef);
+        const docRef = doc(db, 'tenants', user.uid);
+        const docSnap = await getDoc(docRef);
 
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setFormData({
-          businessName: data.businessName || '',
-          tone: data.tone || '',
-          isCustomTone: data.isCustomTone || false,
-          knowledgeBase: Array.isArray(data.knowledgeBase) ? data.knowledgeBase : [],
-          botConfig: data.botConfig || { username: '', password: '', enabled: false, autoSend: true }
-        });
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setFormData({
+            businessName: data.businessName || '',
+            tone: data.tone || '',
+            isCustomTone: data.isCustomTone || false,
+            knowledgeCards: Array.isArray(data.knowledgeCards) ? data.knowledgeCards : [],
+            webLinks: Array.isArray(data.webLinks) ? data.webLinks : [],
+            documents: Array.isArray(data.documents) ? data.documents : [],
+            botConfig: data.botConfig || { username: '', password: '', enabled: false, autoSend: true }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchSettings();
@@ -107,23 +139,102 @@ export const SettingsPage: React.FC = () => {
     };
     setFormData({
       ...formData,
-      knowledgeBase: [...formData.knowledgeBase, newCard]
+      knowledgeCards: [...formData.knowledgeCards, newCard]
     });
   };
 
   const removeKnowledgeCard = (id: string) => {
     setFormData({
       ...formData,
-      knowledgeBase: formData.knowledgeBase.filter(card => card.id !== id)
+      knowledgeCards: formData.knowledgeCards.filter(card => card.id !== id)
     });
   };
 
   const updateKnowledgeCard = (id: string, field: 'title' | 'content', value: string) => {
     setFormData({
       ...formData,
-      knowledgeBase: formData.knowledgeBase.map(card => 
+      knowledgeCards: formData.knowledgeCards.map(card => 
         card.id === id ? { ...card, [field]: value } : card
       )
+    });
+  };
+
+  const addWebLink = () => {
+    if (!linkInput) return;
+    try {
+      new URL(linkInput); // Validation
+      if (!formData.webLinks.includes(linkInput)) {
+        setFormData({
+          ...formData,
+          webLinks: [...formData.webLinks, linkInput]
+        });
+      }
+      setLinkInput('');
+    } catch (e) {
+      alert('Please enter a valid URL');
+    }
+  };
+
+  const removeWebLink = (link: string) => {
+    setFormData({
+      ...formData,
+      webLinks: formData.webLinks.filter(l => l !== link)
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      alert('Only PDF files are supported at this time.');
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    const fileId = Math.random().toString(36).substr(2, 9);
+    const storageRef = ref(storage, `tenants/${user.uid}/documents/${fileId}_${file.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on('state_changed', 
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      }, 
+      (error) => {
+        console.error('Upload failed:', error);
+        setUploading(false);
+        alert('Upload failed. Please try again.');
+      }, 
+      async () => {
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        const newDoc: DocumentInfo = {
+          id: fileId,
+          name: file.name,
+          url: downloadURL,
+          size: file.size,
+          uploadedAt: new Date().toISOString()
+        };
+
+        setFormData(prev => ({
+          ...prev,
+          documents: [...prev.documents, newDoc]
+        }));
+        setUploading(false);
+        setUploadProgress(0);
+      }
+    );
+  };
+
+  const removeDocument = async (docInfo: DocumentInfo) => {
+    setFormData({
+      ...formData,
+      documents: formData.documents.filter(d => d.id !== docInfo.id)
     });
   };
 
@@ -136,7 +247,7 @@ export const SettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 pb-32">
+    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-12 pb-40">
       <div className="max-w-4xl mx-auto">
         <div className="mb-12 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
@@ -293,7 +404,7 @@ export const SettingsPage: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <AnimatePresence>
-                {formData.knowledgeBase.map((card) => (
+                {formData.knowledgeCards.map((card) => (
                   <motion.div
                     key={card.id}
                     layout={true}
@@ -332,7 +443,7 @@ export const SettingsPage: React.FC = () => {
                 ))}
               </AnimatePresence>
 
-              {formData.knowledgeBase.length === 0 && (
+              {formData.knowledgeCards.length === 0 && (
                 <div className="md:col-span-2 py-12 text-center border-2 border-dashed border-white/5 rounded-3xl">
                   <Layout className="w-12 h-12 text-gray-700 mx-auto mb-4" />
                   <p className="text-gray-500 font-medium text-lg">No knowledge cards yet.</p>
@@ -342,7 +453,254 @@ export const SettingsPage: React.FC = () => {
             </div>
           </section>
 
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-50">
+          {/* Section 4: Web Intelligence */}
+          <section className="bg-white/5 border border-white/10 rounded-3xl md:rounded-[2.5rem] p-6 md:p-10 backdrop-blur-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+              <Globe className="w-32 h-32 text-blue-400" />
+            </div>
+
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+                <Globe className="w-6 h-6 text-blue-400" />
+              </div>
+              <h2 className="text-2xl font-bold">Web Intelligence</h2>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <div className="flex-1 relative">
+                  <input
+                    type="url"
+                    value={linkInput}
+                    onChange={(e) => setLinkInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addWebLink())}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all font-medium"
+                    placeholder="https://example.com/pricing-or-about"
+                  />
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 opacity-20">
+                    <Link2 className="w-5 h-5" />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addWebLink}
+                  className="px-6 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+                >
+                  Connect
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {formData.webLinks.map((link) => (
+                  <div 
+                    key={link}
+                    className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl group/link hover:bg-white/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                        <ExternalLink className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm text-gray-300 truncate font-medium">{link}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeWebLink(link)}
+                      className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {formData.webLinks.length === 0 && (
+                  <p className="text-gray-500 text-sm italic text-center py-4 border border-dashed border-white/5 rounded-2xl">
+                    No web links connected yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Section 5: Document Intelligence */}
+          <section className="bg-white/5 border border-white/10 rounded-3xl md:rounded-[2.5rem] p-6 md:p-10 backdrop-blur-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+              <File className="w-32 h-32 text-orange-500" />
+            </div>
+
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 rounded-2xl bg-orange-500/10 border border-orange-500/20">
+                <File className="w-6 h-6 text-orange-400" />
+              </div>
+              <h2 className="text-2xl font-bold">Document Intelligence</h2>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="relative group/upload">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  disabled={uploading}
+                />
+                <div className={`p-10 border-2 border-dashed rounded-[2rem] text-center transition-all ${
+                  uploading ? 'border-orange-500/50 bg-orange-500/5' : 'border-white/10 group-hover/upload:border-orange-500/30 group-hover/upload:bg-orange-500/5'
+                }`}>
+                  {uploading ? (
+                    <div className="space-y-4">
+                      <Loader2 className="w-10 h-10 text-orange-500 animate-spin mx-auto" />
+                      <div>
+                        <p className="font-bold text-lg">Uploading Knowledge...</p>
+                        <div className="max-w-xs mx-auto mt-4 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                          <motion.div 
+                            className="h-full bg-orange-500"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <File className="w-12 h-12 text-gray-700 mx-auto mb-4 group-hover/upload:text-orange-500 transition-colors" />
+                      <p className="text-gray-400 font-medium text-lg">Drop PDF documents here</p>
+                      <p className="text-gray-500 text-sm mt-1">Directly feed your AI with service guides, brochures, or policy docs.</p>
+                      <div className="mt-6 inline-flex items-center gap-2 px-6 py-2 bg-white/5 rounded-xl text-sm font-bold text-gray-300 border border-white/10">
+                        Choose File
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {formData.documents.map((doc) => (
+                  <div 
+                    key={doc.id}
+                    className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl group/doc hover:bg-white/10 transition-all shadow-sm"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="p-3 rounded-xl bg-orange-500/10 text-orange-400">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-white truncate max-w-[150px] md:max-w-full">{doc.name}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">
+                          {(doc.size / 1024 / 1024).toFixed(2)} MB • {new Date(doc.uploadedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a 
+                        href={doc.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="p-2 text-gray-500 hover:text-white transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => removeDocument(doc)}
+                        className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Section 6: Instagram Integration */}
+          <section className="bg-white/5 border border-white/10 rounded-3xl md:rounded-[2.5rem] p-6 md:p-10 backdrop-blur-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+              <Instagram className="w-32 h-32 text-pink-500" />
+            </div>
+            
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-pink-500/10 border border-pink-500/20">
+                  <Instagram className="w-6 h-6 text-pink-400" />
+                </div>
+                <h2 className="text-2xl font-bold">Instagram Connection</h2>
+              </div>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-bold uppercase tracking-widest ${formData.botConfig.enabled ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-gray-500/10 border-white/10 text-gray-400'}`}>
+                <div className={`w-2 h-2 rounded-full ${formData.botConfig.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-gray-400'}`} />
+                {formData.botConfig.enabled ? 'System Active' : 'System Idle'}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">Instagram Username</label>
+                  <input
+                    type="text"
+                    value={formData.botConfig.username}
+                    onChange={(e) => setFormData({ ...formData, botConfig: { ...formData.botConfig, username: e.target.value } })}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/40 transition-all font-medium"
+                    placeholder="@your_account"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-400 mb-3 uppercase tracking-widest">Instagram Password</label>
+                  <input
+                    type="password"
+                    value={formData.botConfig.password}
+                    onChange={(e) => setFormData({ ...formData, botConfig: { ...formData.botConfig, password: e.target.value } })}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/40 transition-all font-medium"
+                    placeholder="••••••••••••"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Zap className="w-5 h-5 text-yellow-400" />
+                      <div>
+                        <p className="font-bold text-sm">Full Auto-Pilot</p>
+                        <p className="text-[10px] text-gray-500">Replies sent without your review</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, botConfig: { ...formData.botConfig, autoSend: !formData.botConfig.autoSend } })}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${formData.botConfig.autoSend ? 'bg-purple-600' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.botConfig.autoSend ? 'translate-x-6' : ''}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Power className="w-5 h-5 text-red-400" />
+                      <div>
+                        <p className="font-bold text-sm">Master Switch</p>
+                        <p className="text-[10px] text-gray-500">Enable/Disable the entire engine</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, botConfig: { ...formData.botConfig, enabled: !formData.botConfig.enabled } })}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${formData.botConfig.enabled ? 'bg-emerald-600' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.botConfig.enabled ? 'translate-x-6' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10 text-xs text-blue-300">
+                  <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <p>Your credentials are encrypted end-to-end and stored securely. We only use them to provide automated assistance.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="pt-8">
             <button
               type="submit"
               disabled={saving}

@@ -18,6 +18,9 @@
     "runtime": "nodejs20"
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "database": "(default)",
+    "location": "us-central1",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

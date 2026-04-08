@@ -24,11 +24,13 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
     const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) {
+      // Create with default role only if doc doesn't exist
       await setDoc(docRef, {
+        role: 'user', 
         businessName: name || 'My Business',
-        tone: 'Professional and Friendly',
+        tone: 'Professional and Precise',
         isCustomTone: false,
-        knowledgeCards: [ // Changed from knowledgeBase to knowledgeCards for consistency with dashboard
+        knowledgeCards: [
           { id: '1', title: 'About Us', content: `We are ${name || 'My Business'}, dedicated to providing excellence.` },
           { id: '2', title: 'Services', content: 'Contact us for more details about our premium services.' }
         ],
@@ -39,6 +41,18 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
           igPassword: ''
         }
       });
+    }
+
+    // Always ensure stats/overview exists for the dashboard to render without flickering zeros
+    const statsRef = doc(db, 'tenants', uid, 'stats', 'overview');
+    const statsSnap = await getDoc(statsRef);
+    if (!statsSnap.exists()) {
+      await setDoc(statsRef, {
+        totalMessages: 0,
+        autoPilotReplies: 0,
+        errors: 0,
+        lastActive: new Date().toISOString()
+      }, { merge: true });
     }
   };
 

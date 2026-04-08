@@ -1,15 +1,30 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Tenants can only read/write their own profile
-    match /tenants/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/tenants/$(request.auth.uid)).data.role == 'admin';
     }
-    
-    // Public profile data (if we want to allow public access to the assistant later)
-    match /public_profiles/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+
+    // Tenant-specific rules
+    match /tenants/{tenantId} {
+      // Users can only read/write their own tenant document
+      // Admins can read all tenant documents
+      allow read: if request.auth != null && (request.auth.uid == tenantId || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == tenantId;
+
+      // Activity and Stats subcollections
+      match /activity/{activityId} {
+        allow read: if request.auth != null && (request.auth.uid == tenantId || isAdmin());
+        allow write: if request.auth != null && request.auth.uid == tenantId;
+      }
+
+      match /stats/{statId} {
+        allow read: if request.auth != null && (request.auth.uid == tenantId || isAdmin());
+        allow write: if request.auth != null && request.auth.uid == tenantId;
+      }
     }
   }
 }
