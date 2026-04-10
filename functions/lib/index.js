@@ -75,14 +75,14 @@ async function parsePdfContent(url) {
     }
 }
 exports.classifyMessage = functions.runWith({
-    secrets: ["GEMINI_API_KEY"],
+    invoker: "public",
 }).https.onCall(async (data, context) => {
     const { message } = data;
     if (!message)
         throw new functions.https.HttpsError("invalid-argument", "Missing message.");
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey)
-        throw new functions.https.HttpsError("internal", "Missing API Key.");
+        throw new functions.https.HttpsError("unknown", "Missing API Key.");
     const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `You are an AI that classifies customer messages.
@@ -115,11 +115,11 @@ Return ONLY valid JSON:
     }
     catch (error) {
         console.error("Classification error:", error);
-        throw new functions.https.HttpsError("internal", "Classification failed.");
+        throw new functions.https.HttpsError("unknown", "Classification failed: " + error.message);
     }
 });
 exports.filterKnowledge = functions.runWith({
-    secrets: ["GEMINI_API_KEY"],
+    invoker: "public",
     timeoutSeconds: 60,
     memory: "512MB"
 }).https.onCall(async (data, context) => {
@@ -147,7 +147,7 @@ exports.filterKnowledge = functions.runWith({
         return { bullets: "No relevant business data found." };
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey)
-        throw new functions.https.HttpsError("internal", "Missing API Key.");
+        throw new functions.https.HttpsError("unknown", "Missing API Key.");
     const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `You are filtering business knowledge.
@@ -172,11 +172,11 @@ Return bullet points only.`;
     }
     catch (error) {
         console.error("Filtering error:", error);
-        throw new functions.https.HttpsError("internal", "Knowledge filtering failed.");
+        throw new functions.https.HttpsError("unknown", "Knowledge filtering failed: " + error.message);
     }
 });
 exports.generateReply = functions.runWith({
-    secrets: ["GEMINI_API_KEY"],
+    invoker: "public",
 }).https.onCall(async (data, context) => {
     const { businessName, tone, context: bizContext, history, message } = data;
     if (!message)
@@ -223,11 +223,11 @@ Return ONLY valid JSON:
     }
     catch (error) {
         console.error("Reply generation error:", error);
-        throw new functions.https.HttpsError("internal", "Reply generation failed.");
+        throw new functions.https.HttpsError("unknown", "Reply generation failed: " + error.message);
     }
 });
 exports.reviewReply = functions.runWith({
-    secrets: ["GEMINI_API_KEY"],
+    invoker: "public",
 }).https.onCall(async (data, context) => {
     const { reply, context: bizContext } = data;
     if (!reply)
@@ -259,11 +259,11 @@ Return ONLY the final reply text.`;
     }
     catch (error) {
         console.error("Review error:", error);
-        throw new functions.https.HttpsError("internal", "Review failed.");
+        throw new functions.https.HttpsError("unknown", "Review failed: " + error.message);
     }
 });
 exports.matchFAQ = functions.runWith({
-    secrets: ["GEMINI_API_KEY"],
+    invoker: "public",
 }).https.onCall(async (data, context) => {
     const { message, faqs } = data;
     if (!message || !faqs)
@@ -291,7 +291,7 @@ Return ONLY the answer or "NONE".`;
     }
     catch (error) {
         console.error("Match error:", error);
-        throw new functions.https.HttpsError("internal", "Matching failed.");
+        throw new functions.https.HttpsError("unknown", "Matching failed: " + error.message);
     }
 });
 //# sourceMappingURL=index.js.map

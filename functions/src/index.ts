@@ -44,13 +44,13 @@ async function parsePdfContent(url: string): Promise<string> {
 
 // 1. Classification Function
 export const classifyMessage = functions.runWith({
-  secrets: ["GEMINI_API_KEY"],
+  invoker: "public",
 }).https.onCall(async (data, context) => {
   const { message } = data;
   if (!message) throw new functions.https.HttpsError("invalid-argument", "Missing message.");
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new functions.https.HttpsError("internal", "Missing API Key.");
+  if (!apiKey) throw new functions.https.HttpsError("unknown", "Missing API Key.");
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -85,13 +85,13 @@ Return ONLY valid JSON:
     return JSON.parse(cleanedJson);
   } catch (error) {
     console.error("Classification error:", error);
-    throw new functions.https.HttpsError("internal", "Classification failed.");
+    throw new functions.https.HttpsError("unknown", "Classification failed: " + (error as Error).message);
   }
 });
 
 // 2. Knowledge Filtering Function
 export const filterKnowledge = functions.runWith({
-  secrets: ["GEMINI_API_KEY"],
+  invoker: "public",
   timeoutSeconds: 60, // Increase timeout for scraping
   memory: "512MB"
 }).https.onCall(async (data, context) => {
@@ -124,7 +124,7 @@ export const filterKnowledge = functions.runWith({
   if (!finalContext) return { bullets: "No relevant business data found." };
 
   const apiKey = process.env.GEMINI_API_KEY!;
-  if (!apiKey) throw new functions.https.HttpsError("internal", "Missing API Key.");
+  if (!apiKey) throw new functions.https.HttpsError("unknown", "Missing API Key.");
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -151,12 +151,12 @@ Return bullet points only.`;
     return { bullets: text.trim() };
   } catch (error) {
     console.error("Filtering error:", error);
-    throw new functions.https.HttpsError("internal", "Knowledge filtering failed.");
+    throw new functions.https.HttpsError("unknown", "Knowledge filtering failed: " + (error as Error).message);
   }
 });
 // 3. Human-like Reply Function
 export const generateReply = functions.runWith({
-  secrets: ["GEMINI_API_KEY"],
+  invoker: "public",
 }).https.onCall(async (data, context) => {
   const { businessName, tone, context: bizContext, history, message } = data;
   if (!message) throw new functions.https.HttpsError("invalid-argument", "Missing message.");
@@ -204,12 +204,12 @@ Return ONLY valid JSON:
     return JSON.parse(cleanedJson);
   } catch (error) {
     console.error("Reply generation error:", error);
-    throw new functions.https.HttpsError("internal", "Reply generation failed.");
+    throw new functions.https.HttpsError("unknown", "Reply generation failed: " + (error as Error).message);
   }
 });
 // 4. Reply Review Function
 export const reviewReply = functions.runWith({
-  secrets: ["GEMINI_API_KEY"],
+  invoker: "public",
 }).https.onCall(async (data, context) => {
   const { reply, context: bizContext } = data;
   if (!reply) throw new functions.https.HttpsError("invalid-argument", "Missing reply.");
@@ -242,13 +242,13 @@ Return ONLY the final reply text.`;
     return response.text().trim();
   } catch (error) {
     console.error("Review error:", error);
-    throw new functions.https.HttpsError("internal", "Review failed.");
+    throw new functions.https.HttpsError("unknown", "Review failed: " + (error as Error).message);
   }
 });
 
 // 5. FAQ Matcher Function
 export const matchFAQ = functions.runWith({
-  secrets: ["GEMINI_API_KEY"],
+  invoker: "public",
 }).https.onCall(async (data, context) => {
   const { message, faqs } = data;
   if (!message || !faqs) throw new functions.https.HttpsError("invalid-argument", "Missing message or FAQs.");
@@ -277,6 +277,6 @@ Return ONLY the answer or "NONE".`;
     return response.text().trim();
   } catch (error) {
     console.error("Match error:", error);
-    throw new functions.https.HttpsError("internal", "Matching failed.");
+    throw new functions.https.HttpsError("unknown", "Matching failed: " + (error as Error).message);
   }
 });
