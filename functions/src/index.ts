@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import axios from "axios";
@@ -43,17 +43,16 @@ async function parsePdfContent(url: string): Promise<string> {
 }
 
 // 1. Classification Function
-export const classifyMessage = functions.runWith({
-  invoker: "public",
-}).https.onCall(async (data, context) => {
+export const classifyMessage = onCall({ invoker: "public" }, async (request) => {
+  const data = request.data;
   const { message } = data;
-  if (!message) throw new functions.https.HttpsError("invalid-argument", "Missing message.");
+  if (!message) throw new HttpsError("invalid-argument", "Missing message.");
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new functions.https.HttpsError("unknown", "Missing API Key.");
+  if (!apiKey) throw new HttpsError("unknown", "Missing API Key.");
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are an AI that classifies customer messages.
 
@@ -85,19 +84,20 @@ Return ONLY valid JSON:
     return JSON.parse(cleanedJson);
   } catch (error) {
     console.error("Classification error:", error);
-    throw new functions.https.HttpsError("unknown", "Classification failed: " + (error as Error).message);
+    throw new HttpsError("unknown", "Classification failed: " + (error as Error).message);
   }
 });
 
 // 2. Knowledge Filtering Function
-export const filterKnowledge = functions.runWith({
+export const filterKnowledge = onCall({
   invoker: "public",
-  timeoutSeconds: 60, // Increase timeout for scraping
-  memory: "512MB"
-}).https.onCall(async (data, context) => {
+  timeoutSeconds: 60,
+  memory: "512MiB"
+}, async (request) => {
+  const data = request.data;
   const { message, retrieved_chunks, webLinks, documents } = data;
   if (!message) {
-    throw new functions.https.HttpsError("invalid-argument", "Missing message.");
+    throw new HttpsError("invalid-argument", "Missing message.");
   }
 
   // 1. Process Dynamic Sources
@@ -124,10 +124,10 @@ export const filterKnowledge = functions.runWith({
   if (!finalContext) return { bullets: "No relevant business data found." };
 
   const apiKey = process.env.GEMINI_API_KEY!;
-  if (!apiKey) throw new functions.https.HttpsError("unknown", "Missing API Key.");
+  if (!apiKey) throw new HttpsError("unknown", "Missing API Key.");
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are filtering business knowledge.
 
@@ -151,19 +151,18 @@ Return bullet points only.`;
     return { bullets: text.trim() };
   } catch (error) {
     console.error("Filtering error:", error);
-    throw new functions.https.HttpsError("unknown", "Knowledge filtering failed: " + (error as Error).message);
+    throw new HttpsError("unknown", "Knowledge filtering failed: " + (error as Error).message);
   }
 });
 // 3. Human-like Reply Function
-export const generateReply = functions.runWith({
-  invoker: "public",
-}).https.onCall(async (data, context) => {
+export const generateReply = onCall({ invoker: "public" }, async (request) => {
+  const data = request.data;
   const { businessName, tone, context: bizContext, history, message } = data;
-  if (!message) throw new functions.https.HttpsError("invalid-argument", "Missing message.");
+  if (!message) throw new HttpsError("invalid-argument", "Missing message.");
 
   const apiKey = process.env.GEMINI_API_KEY!;
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are a human customer support assistant chatting on Instagram.
 
@@ -204,19 +203,18 @@ Return ONLY valid JSON:
     return JSON.parse(cleanedJson);
   } catch (error) {
     console.error("Reply generation error:", error);
-    throw new functions.https.HttpsError("unknown", "Reply generation failed: " + (error as Error).message);
+    throw new HttpsError("unknown", "Reply generation failed: " + (error as Error).message);
   }
 });
 // 4. Reply Review Function
-export const reviewReply = functions.runWith({
-  invoker: "public",
-}).https.onCall(async (data, context) => {
+export const reviewReply = onCall({ invoker: "public" }, async (request) => {
+  const data = request.data;
   const { reply, context: bizContext } = data;
-  if (!reply) throw new functions.https.HttpsError("invalid-argument", "Missing reply.");
+  if (!reply) throw new HttpsError("invalid-argument", "Missing reply.");
 
   const apiKey = process.env.GEMINI_API_KEY!;
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are reviewing a reply before it is sent to a customer.
 
@@ -242,20 +240,19 @@ Return ONLY the final reply text.`;
     return response.text().trim();
   } catch (error) {
     console.error("Review error:", error);
-    throw new functions.https.HttpsError("unknown", "Review failed: " + (error as Error).message);
+    throw new HttpsError("unknown", "Review failed: " + (error as Error).message);
   }
 });
 
 // 5. FAQ Matcher Function
-export const matchFAQ = functions.runWith({
-  invoker: "public",
-}).https.onCall(async (data, context) => {
+export const matchFAQ = onCall({ invoker: "public" }, async (request) => {
+  const data = request.data;
   const { message, faqs } = data;
-  if (!message || !faqs) throw new functions.https.HttpsError("invalid-argument", "Missing message or FAQs.");
+  if (!message || !faqs) throw new HttpsError("invalid-argument", "Missing message or FAQs.");
 
   const apiKey = process.env.GEMINI_API_KEY!;
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are matching a customer message to a business FAQ.
 
@@ -277,6 +274,6 @@ Return ONLY the answer or "NONE".`;
     return response.text().trim();
   } catch (error) {
     console.error("Match error:", error);
-    throw new functions.https.HttpsError("unknown", "Matching failed: " + (error as Error).message);
+    throw new HttpsError("unknown", "Matching failed: " + (error as Error).message);
   }
 });
